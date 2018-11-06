@@ -10,8 +10,13 @@ Analyze the first 100 genes that are specifically expressed in CMC.
 
 ## Proposed Analysis.  
 Venn graph to find the overlaped gene expression. 
+
+Heatmap to show the differences between the samples.
+
 PCA to find out the components that influnced in the G082 cells.
-GO analysis.
+
+GO analysis to find out which type of genes are influenced most.
+
 ## Proposed Timeline & Major milestones (or segments)
 Milestone 1 (11/13/18): Using HPC to line up the fastq data. Generate the list which can be worked on later.
 
