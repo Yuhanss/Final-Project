@@ -17,6 +17,8 @@ PCA to find out the components that influnced in the G082 cells.
 
 GO analysis to find out which type of genes are influenced most.
 
+Motif analysis to see which target motif is influenced.
+
 ## Proposed Timeline & Major milestones (or segments)
 Milestone 1 (11/13/18): Using HPC to line up the fastq data. Generate the list which can be worked on later.
 
