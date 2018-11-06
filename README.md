@@ -9,14 +9,16 @@ G082 and G082 corrected cell lines were both used to collect samples at day 0 (N
 Analyze the first 100 genes that are specifically expressed in CMC.
 
 ## Proposed Analysis.  
-
+Venn graph to find the overlaped gene expression. 
+PCA to find out the components that influnced in the G082 cells.
+GO analysis.
 ## Proposed Timeline & Major milestones (or segments)
-Milestone 1 (11/13/18): 
-Milestone 2 (11/20/18):  
-Milestone 3 (11/27/18):  
+Milestone 1 (11/13/18): Using HPC to line up the fastq data. Generate the list which can be worked on later.
+Milestone 2 (11/20/18): Find out the sepecifiic gene expression in NCC and CMC for each cell types. And generate the list of the specific genes to do the following analysis.
+Milestone 3 (11/27/18): Draw graphs, and analyze which genes are influenced in G082 cells.
 
 ## User Interface
-Wire diagram, powerpoint, or other illustration of the anticipated user interface and functionality.  
+Diagram pipeline and powerpoint.
 
 ## Dependencies
 
