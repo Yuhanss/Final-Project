@@ -1,0 +1,135 @@
+---
+title: "Final"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+#Final Project
+
+# Command line
+
+## Seting up STAR
+Download the Homo sapiens GRCh38 genome: 
+https://support.illumina.com/sequencing/sequencing_software/igenome.html
+
+###Unzip the GRCh38 
+```{bash, eval=FALSE}
+tar -vxzf Homo_sapiens_NCBI_GRCh38.tar.gz
+```
+
+###Build a STAR index
+```{bash, eval=FALSE}
+STAR\ 
+> --runMode genomeGenerate \
+> --genomeDir /home/yuhan/Finalproject/STAR_index \
+> --genomeFastaFiles /home/yuhan/Finalproject/Homo_sapiens/NCBI/GRCh38/Sequence/WholeGenomeFasta/genome.fa \
+> --sjdbGTFfile /home/yuhan/Finalproject/Homo_sapiens/NCBI/GRCh38/Annotation/Genes/genes.gtf \
+> --sjdbOverhang 100 \
+> --runThreadN 12
+```
+
+###Get the raw data
+```{bash, eval=FALSE}
+scp [source file] [username]@[destination server]
+eg: scp /Users/lundai/Desktop/RNA-seq data/KS-1-G082-0_ATCACG_L001_R1_001.fastq.gz yuhan@trgn.bioinform.io:./Finalproject/
+```
+
+###Align the genome
+```{bash, eval=FALSE}
+STAR\
+> --genomeDir /home/yuhan/Finalproject/STAR_index \
+> --readFilesIn /home/yuhan/Finalproject/KS-1-G082-0_ATCACG_L001_R1_001.fastq.gz \
+>--readFilesCommand gunzip -c \
+>--outFileNamePrefix /home/yuhan/Finalproject/Datacomparation/STAR_mapping/G08-2 \
+> --outSAMtype BAM SortedByCoordinate \
+>--quantMode GeneCounts \
+>--outSAMattributes AS nM jI jM \
+> --runThreadN 8
+```
+
+###Download the aligned BAM files
+```{bash, eval=FALSE}
+scp [username]@[destination server]:[source file] [directory]
+eg: scp yuhan@trgn.bioinform.io:./Finalproject/Datacomparation/G08-1Aligned.out.sam /Users/lundai/Desktop/RNA-seq-compare
+```
+
+#R
+
+###Set up libraries and directory
+```{r echo=FALSE}
+library(Rsamtools)
+library(Rsubread)
+library(ggplot2)
+library('RColorBrewer')
+library(dplyr)
+library(plotly)
+library(DESeq2)
+setwd("/Users/lundai/Desktop/RNA-seq-compare")
+```
+
+##featurecounts
+Counts the reads of the RNA-seq data
+```{r pressure, echo=FALSE}
+RNA_data <- featureCounts(files = c("G08-1Aligned.out.sam","G08-2Aligned.sortedByCoord.out.bam","G08-corr-3Aligned.sortedByCoord.out.bam","G08-corr-4Aligned.sortedByCoord.out.bam"),
+                          #annotation
+                          annot.inbuilt = "mm10",
+                          annot.ext = "genes.gtf",
+                          isGTFAnnotationFile = TRUE, 
+                          GTF.featureType = "exon",
+                          GTF.attrType = "gene_name",
+                          chrAliases = NULL,
+                          # level of summarization
+                          useMetaFeatures=TRUE)
+```
+
+For the 4th one the alignment is only 19.9%. Why this happen? 
+
+###input the tables and creat the Coltable for doing the DESeq analysis.
+```{r, echo=FALSE}
+write.table(x=data.frame(RNA_data$annotation[,c("GeneID")],RNA_data$counts,stringsAsFactors=FALSE),file="counts.csv",quote=FALSE,sep="\t",row.names=FALSE)
+
+counts <- read.csv(file = "counts.csv",sep = "\t",header = TRUE, row.names = 1)
+#Error:header and 'col.names' are of different lengths.Solution:add Header=TRUE
+names(counts)[1:4] <- c("G082_NCC","G082_CMC", "Cor_NCC","Cor_CMC")
+#Coltable <- read.csv(file = "Coltable.csv",sep = ",",header = TRUE, row.names = 1)
+
+counts1 <- counts[c("G082_NCC","G082_CMC")]
+counts2 <- counts[c("Cor_NCC","Cor_CMC")]
+Col1 <- read.csv(file = "Col1.csv",sep = ",",header = TRUE, row.names = 1)
+Col2 <- read.csv(file = "Col2.csv",sep = ",",header = TRUE, row.names = 1)
+head(Col1)
+head(counts1)
+```
+
+##DEseq2 
+manual
+```{r, echo=FALSE}
+vignette("DESeq2")
+```
+
+###Establish the DESeq Data Set
+```{r, echo=FALSE}
+dds1 <- DESeqDataSetFromMatrix(countData = counts1,
+                              colData = Col1,
+                              design = ~ Condition)
+#some values in assay are negative???Didn't find any nagetive data
+#check: summary(is.numeric(countdata[,1])), logical,solution:add row.name=1
+dds1
+
+dds2 <- DESeqDataSetFromMatrix(countData = counts2,
+                               colData = Col2,
+                               design = ~ Condition)
+#some values in assay are negative???Didn't find any nagetive data
+#check: summary(is.numeric(countdata[,1])), logical,solution:add row.name=1
+dds2
+```
+
+###Differential expression analysis
+```{r, echo=FALSE}
+#dds <- DESeq(dds1)
+#Error in checkForExperimentalReplicates(object, modelMatrix) : 
+# The design matrix has the same number of samples and coefficients to fit,so estimation of dispersion is not possible. Treating samples as replicates was deprecated in v1.20 and no longer supported since v1.22.
+
+```
+
