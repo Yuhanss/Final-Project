@@ -7,20 +7,17 @@ I am going to use STAR to align the genome. Later, use the featurecounts to get 
 ## Datasets
 G082 and G082 corrected cell lines were both used to collect samples at day 0 (NCC) and day 96 (CMC), respectively, and sent to do the RNA-seq. G8082 corrected line is the control.
 
-### Prototype
-Analyze the first 100 genes that are specifically expressed in CMC.
-
 ## Proposed Analysis.  
 Heatmap to show the differences between the samples, using the STAR data.
 
 PCA to find out the components that influnced in the G082 cells, using the Salmon data.
 
 ## Proposed Timeline & Major milestones (or segments)
-Milestone 1 (11/13/18): Using STAR to align the data, and get the reading counts and p value.
+Milestone 1 (11/13/18): There was a lot of problem in seting up the STAR. 
 
-Milestone 2 (11/20/18): Making the Heatmap and using the Salmon to the TPMS.
+Milestone 2 (11/20/18): Using the STAR aligner align the DNA. Then use the featurecounts get the counts. After that, use DESeq get the p-value and folder changes.
 
-Milestone 3 (11/27/18): Making the PCA figure and draw pipeline. 
+Milestone 3 (11/27/18):  Plot Heatmap for top 50 differential genes by p-values. Draw a Volcano plot by plotting p-value (log) vs. fold-change. Using Salmon align the genome and get the TRMS. Draw PCA figure and draw pipeline. 
 
 ## User Interface
 Diagram pipeline and powerpoint.
