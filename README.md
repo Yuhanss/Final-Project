@@ -17,7 +17,7 @@ Milestone 1 (11/13/18): There was a lot of problem in seting up the STAR.
 
 Milestone 2 (11/20/18): Using the STAR aligner align the DNA. Then use the featurecounts get the counts. After that, use DESeq get the p-value and folder changes.
 
-Milestone 3 (11/27/18):  Plot Heatmap for top 50 differential genes by p-values. Draw a Volcano plot by plotting p-value (log) vs. fold-change. Using Salmon align the genome and get the TRMS. Draw PCA figure and draw pipeline. 
+Milestone 3 (11/27/18):  Plot Heatmap for top 50 differential genes by p-values. Draw a Volcano plot by plotting p-value (log) vs. fold-change. Since I don't have replecates, so I cannot caculate the p-value. Using Salmon align the genome and get the TRMS. Draw PCA figure and draw pipeline. 
 
 ## User Interface
 Diagram pipeline and powerpoint.
