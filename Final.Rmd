@@ -1,16 +1,23 @@
 ---
 title: "Final"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 #Final Project
 
-# Command line
+#Abstract
+In our lab, we are interested in one disease called CHARGE syndrome, which caused by mutating the CHD7 gene in patients. For normal cells, during the process of inducing neural crest cells(NCC) to form cranial mesenchymal cells(CMC), the shape of the nucleus of cells are changing, which may related to the genome expression reorganization. However, this nucleus shape changing does not appear in the CHARGE syndrome patient cells(G08 cell lines), and comes back in the CHD7 corrected cell lines. Therefore, we want to know whether the gene expression during the transition from NCC to CMC has any defects, by compare the RNA-seq data at 0 hours(NCC) and 96 hours(CMC) in both CHARGE patient cells, and corrected cells as control.
+
+I am going to use STAR to align the genome. Later, use the featurecounts to get the reading counts and use DEseq2 to do the differential gene analysis. In the second part, usint Salmon to get the TPMS, and using EdgeR, DEseq2 or LMMA to analyze the TPM data.
+
+# 1. Command line part
 
 ## Seting up STAR
-Download the Homo sapiens GRCh38 genome: 
+Follow the instructions to install STAR at: https://github.com/alexdobin/STAR
+(It may requir the right version of gcc, it didn't work on my computer, so I did the alignment on the server.)
+Download the Homo sapiens GRCh38 genome at: 
 https://support.illumina.com/sequencing/sequencing_software/igenome.html
 
 ###Unzip the GRCh38 
@@ -19,6 +26,13 @@ tar -vxzf Homo_sapiens_NCBI_GRCh38.tar.gz
 ```
 
 ###Build a STAR index
+Using your template genome DNA to make an index and help you align your RNA-seq data.
+
+--genomeDir: the direction of your final template index.  
+--genomeFastaFiles: your template genome.fa file. 
+--sjdbGTFfile:your template genes.gtf file, shouls in the anotation file. 
+--sjdbOverhang:can be think as the maximum possible overhang for your reads. Default is 100.
+--runThreadN: the number of cores you want to use to run this project. My computer has 4 cores, the server has 12 cores.
 ```{bash, eval=FALSE}
 STAR\ 
 > --runMode genomeGenerate \
@@ -30,12 +44,24 @@ STAR\
 ```
 
 ###Get the raw data
+You can download your own data on website. For this project, I got the RNA-seq data from my labmember. He collected the cells to do RNA-seq at 8 cell types:WT NCC cells 1 and 2(duplicates), WT CMC cells 1 and 2(duplicates), G08-correacted NCC(corrected the mutant chd7 gene in G08 cells), G08-corrected CMC, G08 NCC, G08 CMC.
+
+I upload the data to the server by using:
 ```{bash, eval=FALSE}
 scp [source file] [username]@[destination server]
 eg: scp /Users/lundai/Desktop/RNA-seq data/KS-1-G082-0_ATCACG_L001_R1_001.fastq.gz yuhan@trgn.bioinform.io:./Finalproject/
 ```
 
 ###Align the genome
+Align the genome by using the following commands.
+--genomeDir: the direction of your final template index.  
+--readFilesIn: your RNA-seq fastq zip data. 
+--readFilesCommand gunzip -c: I used the zip data, so I need to add this command to unzip my fasq file.
+--outFileNamePrefix: the final output direction and the prefix you want to add to your final data, to help you distinguish the different data.
+--outSAMtype BAM SortedByCoordinate: if you want to have sorted BAM file as your output file.
+--quantMode GeneCounts: count the gene numbers
+--outSAMattributes: a string of desired SAM sttributes, in the order desired for the output SAM.
+--runThreadN: the number of cores you want to use to run this project. My computer has 4 cores, the server has 12 cores.
 ```{bash, eval=FALSE}
 STAR\
 > --genomeDir /home/yuhan/Finalproject/STAR_index \
@@ -49,29 +75,36 @@ STAR\
 ```
 
 ###Download the aligned BAM files
+Using the following code to download the SAM and BAM files.
 ```{bash, eval=FALSE}
 scp [username]@[destination server]:[source file] [directory]
 eg: scp yuhan@trgn.bioinform.io:./Finalproject/Datacomparation/G08-1Aligned.out.sam /Users/lundai/Desktop/RNA-seq-compare
 ```
 
-#R
+#2.R data analyzation
+Now move to R and do the data analyzation
 
 ###Set up libraries and directory
-```{r echo=FALSE}
+```{r, results='hide'}
 library(Rsamtools)
 library(Rsubread)
-library(ggplot2)
-library('RColorBrewer')
-library(dplyr)
 library(plotly)
+library(dplyr)
+library(gplots)
 library(DESeq2)
+library(apeglm)
+library(ggrepel)
+library(EnhancedVolcano)
+library(pheatmap)
+library('RColorBrewer')
+library(vsn)
 setwd("/Users/lundai/Desktop/RNA-seq-compare")
 ```
 
 ##featurecounts
-Counts the reads of the RNA-seq data
-```{r pressure, echo=FALSE}
-RNA_data <- featureCounts(files = c("G08-1Aligned.out.sam","G08-2Aligned.sortedByCoord.out.bam","G08-corr-3Aligned.sortedByCoord.out.bam","G08-corr-4Aligned.sortedByCoord.out.bam"),
+Using the Featurecounts to count the reads of the RNA-seq data.
+```{r , eval=FALSE}
+RNA_data <- featureCounts(files = c("WT-NCC-1.bam","WT-NCC-2.bam","G08-corr-NCC.bam","G08-NCC.bam","WT-CMC-1.bam","WT-CMC-2.bam","G08-corr-CMC.bam","G08-CMC.bam"),
                           #annotation
                           annot.inbuilt = "mm10",
                           annot.ext = "genes.gtf",
@@ -83,53 +116,257 @@ RNA_data <- featureCounts(files = c("G08-1Aligned.out.sam","G08-2Aligned.sortedB
                           useMetaFeatures=TRUE)
 ```
 
-For the 4th one the alignment is only 19.9%. Why this happen? 
+For some sample, the alignments are really small. Why this happen? 
 
 ###input the tables and creat the Coltable for doing the DESeq analysis.
+After align the data, I saved them as a csv file and than read them. I changed tthe title to make them more understandable. Also created a Col file which contains the name of the samples and the condition of the samples such as "treatment" and "control" et al.
+```{r, eval=FALSE}
+write.table(x=data.frame(RNA_data$annotation[,c("GeneID")],(RNA_data$counts + 1),stringsAsFactors=FALSE),file="counts.csv",quote=FALSE,sep="\t",row.names=FALSE)
+```
 ```{r, echo=FALSE}
-write.table(x=data.frame(RNA_data$annotation[,c("GeneID")],RNA_data$counts,stringsAsFactors=FALSE),file="counts.csv",quote=FALSE,sep="\t",row.names=FALSE)
-
 counts <- read.csv(file = "counts.csv",sep = "\t",header = TRUE, row.names = 1)
 #Error:header and 'col.names' are of different lengths.Solution:add Header=TRUE
-names(counts)[1:4] <- c("G082_NCC","G082_CMC", "Cor_NCC","Cor_CMC")
+names(counts)[1:8] <- c("WT_NCC_1","WT_NCC_2","G08_corr_NCC","G08_NCC","WT_CMC_1","WT_CMC_2","G08_corr_CMC","G08_CMC")
 #Coltable <- read.csv(file = "Coltable.csv",sep = ",",header = TRUE, row.names = 1)
 
-counts1 <- counts[c("G082_NCC","G082_CMC")]
-counts2 <- counts[c("Cor_NCC","Cor_CMC")]
-Col1 <- read.csv(file = "Col1.csv",sep = ",",header = TRUE, row.names = 1)
-Col2 <- read.csv(file = "Col2.csv",sep = ",",header = TRUE, row.names = 1)
-head(Col1)
-head(counts1)
+Col <- read.csv(file = "Col.csv",sep = ",",header = TRUE, row.names = 1)
+head(Col)
 ```
 
 ##DEseq2 
-manual
-```{r, echo=FALSE}
+After the feature count, I use the DEseq to help me analyze the data to caculate the fold changes and p values, you can find the manual of DESeq by typing:
+```{r, eval=FALSE}
 vignette("DESeq2")
 ```
 
 ###Establish the DESeq Data Set
-```{r, echo=FALSE}
-dds1 <- DESeqDataSetFromMatrix(countData = counts1,
-                              colData = Col1,
+```{r, results='hide'}
+dds <- DESeqDataSetFromMatrix(countData = counts,
+                              colData = Col,
                               design = ~ Condition)
 #some values in assay are negative???Didn't find any nagetive data
 #check: summary(is.numeric(countdata[,1])), logical,solution:add row.name=1
-dds1
-
-dds2 <- DESeqDataSetFromMatrix(countData = counts2,
-                               colData = Col2,
-                               design = ~ Condition)
-#some values in assay are negative???Didn't find any nagetive data
-#check: summary(is.numeric(countdata[,1])), logical,solution:add row.name=1
-dds2
 ```
 
 ###Differential expression analysis
-```{r, echo=FALSE}
-#dds <- DESeq(dds1)
+```{r, eval=FALSE}
+dds <- DESeq(dds)
 #Error in checkForExperimentalReplicates(object, modelMatrix) : 
 # The design matrix has the same number of samples and coefficients to fit,so estimation of dispersion is not possible. Treating samples as replicates was deprecated in v1.20 and no longer supported since v1.22.
+```
+Solution: Install the DESeq 1.20.0 version. This time you will get an warning message, but you will still get your results. Remember to restart the R after install the new version.
+```{r}
+dds <- DESeq(dds)
+res <- results(dds)
+head(res,3)
+```
 
+###Compare different groups
+```{r}
+res_WT <- results(dds, contrast=c("Condition","control1","test1"))
+res_G08_corr <- results(dds, contrast=c("Condition","control2","test2"))
+res_G08 <- results(dds, contrast=c("Condition","control3","test3"))
+```
+
+###Log fold change shrinkage for visualization and ranking
+```{r}
+resultsNames(dds)
+resLFC_WT <- lfcShrink(dds, coef="Condition_test1_vs_control1", type="apeglm")
+head(resLFC_WT,3)
+```
+Can noly get the fold change between the WT NCC and WT CMC, so to get the fold changes among other two groups, need to seprate and prepear the data again, which is shown in the following section.
+
+###Get the fold changes from other two groups
+```{r, results='hide'}
+#Cannot caculate the Fold Changes between G08 and G08-corr
+counts1 <- counts[c("G08_corr_NCC","G08_corr_CMC")]
+counts2 <- counts[c("G08_NCC","G08_CMC")]
+Col1 <- read.csv(file = "Col1.csv",sep = ",",header = TRUE, row.names = 1)
+Col2 <- read.csv(file = "Col2.csv",sep = ",",header = TRUE, row.names = 1)
+dds1 <- DESeqDataSetFromMatrix(countData = counts1,
+                               colData = Col1,
+                               design = ~ Condition)
+dds2 <- DESeqDataSetFromMatrix(countData = counts2,
+                               colData = Col2,
+                               design = ~ Condition)
+dds1 <- DESeq(dds1)
+resLFC_G08_corr <- lfcShrink(dds1, coef="Condition_test2_vs_control2", type="apeglm")
+dds2 <- DESeq(dds2)
+resLFC_G08 <- lfcShrink(dds2, coef="Condition_test3_vs_control3", type="apeglm")
+```
+
+### p-value
+Here I use alpha=0.05 as my significant p value.
+```{r}
+#p-value
+resOrdered <- res[order(res$pvalue),]
+summary(res)
+##p-value<0.05
+res05 <- results(dds, alpha=0.05)
+summary(res05)
+sum(res05$padj < 0.05, na.rm=TRUE)
+```
+
+###Extracting transformed values
+```{r}
+#Top 50 changed genes in each group
+#make rlog transformed data
+vsd <- vst(dds, blind=FALSE)
+head(assay(vsd),3)
+```
+
+###Check the effects of transformations on the variance
+Befor the transtoemation, the sd vs mean plot is:
+```{r}
+meanSdPlot(assay(dds))
+```
+
+Aftre the transformation, the sd va mean plot is:
+```{r}
+meanSdPlot(assay(vsd))
+```
+
+##Heatmap for the count matrix
+
+###set up the annotation
+To add the annotaion on the heatmap, I need to set up the df which shows the conditions by:
+```{r}
+select <- order(rowMeans(counts(dds,normalized=TRUE)),
+                decreasing=TRUE)[1:50]
+df <- as.data.frame(colData(dds)[,c("Condition")])
+rownames(df) <- colnames(dds)
+names(df)[1] <- c("Conditin")
+```
+
+###Drawing the heatmap by using the pheatmap library.
+```{r}
+pheatmap(assay(vsd)[select,],scale="row",
+         trace="none", dendrogram="column",fontsize_row = 5, 
+         cluster_rows =TRUE, cellwidth = 30,cellheight = 5,
+         main = "Heatmap of the count matrix", show_rownames=TRUE,
+         cluster_cols=FALSE,cluster_row=TRUE, 
+         legend = TRUE, annotation_col = df)
+
+```
+
+###heatmap for the log2 Fold Change between different samples
+I also want to compare the log2 Fold Changes between different groups. So at first I get the first 1000 changed genes in each group and than combind them together to create the candidate highly changed genes file:FC_top.
+```{r}
+write.table(x=data.frame(resLFC_WT$log2FoldChange, stringsAsFactors=FALSE),file="FC_WT50.csv",quote=FALSE,sep="\t",row.names=TRUE)
+write.table(x=data.frame(resLFC_G08_corr$log2FoldChange, stringsAsFactors=FALSE),file="FC_Cor50.csv",quote=FALSE,sep="\t",row.names=TRUE)
+write.table(x=data.frame(resLFC_G08$log2FoldChange, stringsAsFactors=FALSE),file="FC_G0850.csv",quote=FALSE,sep="\t",row.names=TRUE)
+FC_WT<-read.csv(file = "FC_WT50.csv",sep = "\t",header = TRUE, row.names = NULL)
+FC_WT <- FC_WT[order(-abs(FC_WT$resLFC_WT.log2FoldChange)),]
+FC_Cor<-read.csv(file = "FC_Cor50.csv",sep = "\t",header = TRUE, row.names = NULL)
+FC_Cor <- FC_Cor[order(-abs(FC_Cor$resLFC_G08_corr.log2FoldChange)),]
+FC_G08<-read.csv(file = "FC_G0850.csv",sep = "\t",header = TRUE, row.names = NULL)
+FC_G08 <- FC_G08[order(-abs(FC_G08$resLFC_G08.log2FoldChange)),]
+
+
+FC_WT1000 <-slice(FC_WT, 1:1000)
+FC_Cor1000 <-slice(FC_Cor, 1:1000)
+FC_G081000 <-slice(FC_G08, 1:1000)
+FC_top <-full_join(FC_WT1000, FC_Cor1000, by = "row.names")
+FC_top <-full_join(FC_top, FC_G081000, by = "row.names")
+FC_top <-inner_join(FC_top, FC_WT, by = "row.names")
+FC_top <-inner_join(FC_top, FC_Cor, by = "row.names")
+FC_top <-inner_join(FC_top, FC_G08, by = "row.names")
+row.names(FC_top)=FC_top[,1]
+FC_top <- FC_top[c(5:7)]
+names(FC_top)[1:3] <- c("WT","G08_corr","G08")
+
+```
+
+###Heatmap for log2 Fold change
+Then draw the heatmap.
+```{r}
+pheatmap(FC_top, scale="row",
+         trace="none", dendrogram="column",cluster_rows =TRUE,
+         fontsize_row = 1, show_rownames=TRUE,
+         cluster_cols=FALSE, legend = TRUE,main = "log2(FoldChange) of 3000 top genes from NCC to CMC",
+         color = colorRampPalette(c("red","black","green"))(255))
+```
+
+##Volcano Plot
+I also want to draw the volcano plot for the genes changes from NCC to CMC in each cell types.alphs=0.05 is my significant p value. By using the plot code it is really wordy, and the none significant spots won't show. 
+
+###WT NCC vs WT CMC
+```{r}
+alpha <- 0.05 # Threshold on the p-value
+# par(mfrow=c(1,2))
+# Compute significance, with a maximum of 320 for the p-values set to 0 due to limitation of computation precision
+res_WT$sig <- -log10(res_WT$padj)
+sum(is.infinite(res_WT$sig))
+res_WT[is.infinite(res_WT$sig),"sig"] <- 350
+genes.to.plot <- !is.na(res_WT$pvalue)
+range(res_WT[genes.to.plot, "log2FoldChange"])
+
+## Volcano plot of adjusted p-values
+cols <- densCols(res_WT$log2FoldChange, res_WT$sig)
+cols[res_WT$pvalue ==0] <- "purple"
+res_WT$pch <- 19
+res_WT$pch[res_WT$pvalue ==0] <- 6
+plot(res_WT$log2FoldChange, 
+     res_WT$sig, 
+     col=cols, panel.first=grid(),
+     main="WT Volcano plot", 
+     xlab="Effect size: log2(fold-change)",
+     ylab="-log10(adjusted p-value)",
+     pch=res_WT$pch, cex=0.4)
+abline(v=0)
+abline(v=c(-2.5,2.5), col="brown")
+abline(h=-log10(alpha), col="brown")
+
+## Plot the names of a reasonable number of genes, by selecting those begin not only significant but also having a strong effect size
+gn.selected <- abs(res_WT$log2FoldChange) > 2 & res_WT$padj < alpha 
+text(res_WT$log2FoldChange[gn.selected],
+     -log10(res_WT$padj)[gn.selected],
+     lab=rownames(res_WT)[gn.selected ], cex=0.6)
+
+res_WT$sig <- -log10(res_WT$padj)
+sum(is.infinite(res_WT$sig))
+res_WT[is.infinite(res_WT$sig),"sig"] <- 350
+genes.to.plot <- !is.na(res_WT$pvalue)
+range(res_WT[genes.to.plot, "log2FoldChange"])
+
+```
+
+###With Enhanced Volcano
+However, if using the Enhancedvolcano library, it is much easier and the plot are prettier. So I used the Enhanced volcano to draw the volcano plots for the 3 cell types.
+```{r}
+EnhancedVolcano(res_WT,
+                lab = rownames(res_WT),
+                x = "log2FoldChange",
+                y = "pvalue")
+```
+
+###G08 corrected
+###With Enhanced Volcano
+```{r}
+EnhancedVolcano(res_G08_corr,
+                lab = rownames(res_G08_corr),
+                x = "log2FoldChange",
+                y = "pvalue")
+```
+
+###G08
+###With Rnhanced Volcano
+```{r}
+EnhancedVolcano(res_G08,
+                lab = rownames(res_G08),
+                x = "log2FoldChange",
+                y = "pvalue")
+```
+
+##PCA
+Draw a PCA plot to see the first two principal conponents
+```{r}
+pcaData <- plotPCA(vsd, intgroup=c("Condition"), returnData=TRUE)
+percentVar <- round(500 * attr(pcaData, "percentVar"))
+ggplot(pcaData, aes(PC1, PC2, color=Condition)) +
+  geom_point(size=3) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  coord_fixed()
 ```
 
