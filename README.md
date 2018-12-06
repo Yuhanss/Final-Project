@@ -22,5 +22,33 @@ Milestone 3 (11/27/18):  For the DESeq(dds), it did't work because I do not hav
 ## User Interface
 Using the deaw.io to draw the diagram pipeline.
 
-## Installation
-Installed the STAR, but failed. Install the Biomanager, featurecounts, DESeq2, pheatmap, EnvancedVolcano libraries on the R.
+##Beta Release
+
+##Installation
+###STAR
+Follow the instructions to install STAR at: https://github.com/alexdobin/STAR (It may requir the right version of gcc, it didn’t work on my computer, so I did the alignment on the server.) 
+Manual: https://github.com/alexdobin/STAR/blob/master/doc/STARmanual.pdf
+
+###Homo apaiens GRCh38 template
+Download the Homo sapiens GRCh38 genome at: https://support.illumina.com/sequencing/sequencing_software/igenome.html
+
+###R libraries
+1. Featurecounts
+     install.packages("BiocManager")
+     BiocManager::install("Rsubread", version = "3.8")
+Manual: https://www.rdocumentation.org/packages/Rsubread/versions/1.22.2/topics/featureCounts
+
+2. DESeq2
+     BiocManager::install("DESeq2", version = "3.8")
+Manual: vignette("DESeq2")
+     
+3. pheatmap
+     install.packages(ggrepel)
+     install.packages(pheatmap)
+
+4. Enhancedvolcano
+     BiocManager::install("EnhancedVolcano", version = "3.9")
+     
+5. Apeglm
+     BiocManager::install("apeglm", version = "3.8")
+     
