@@ -22,17 +22,15 @@ Milestone 3 (11/27/18):  For the DESeq(dds), it did't work because I do not hav
 ## User Interface
 Using the deaw.io to draw the diagram pipeline.
 
-##Beta Release
-
-##Installation
-###STAR
+## Installation
+### STAR
 Follow the instructions to install STAR at: https://github.com/alexdobin/STAR (It may requir the right version of gcc, it didn’t work on my computer, so I did the alignment on the server.) 
 Manual: https://github.com/alexdobin/STAR/blob/master/doc/STARmanual.pdf
 
-###Homo apaiens GRCh38 template
+### Homo apaiens GRCh38 template
 Download the Homo sapiens GRCh38 genome at: https://support.illumina.com/sequencing/sequencing_software/igenome.html
 
-###R libraries
+### R libraries
 1. Featurecounts
      install.packages("BiocManager")
      BiocManager::install("Rsubread", version = "3.8")
